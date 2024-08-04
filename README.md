@@ -1,2 +1,2 @@
-# trajectory_selector
-Autoware trajectory_selector node 
+# trajectory_router
+trajectory_router node in ichthus_launch
