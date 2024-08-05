@@ -17,7 +17,7 @@ class TrajectorySelector : public rclcpp::Node
 public:
   TrajectorySelector() : Node("trajectory_selector")
   {
-    lccMsg.changeflag = true;
+    lccMsg.changeflag = false;
     TR_route_sub_ = create_subscription<autoware_planning_msgs::msg::LaneletRoute>("/planning/trajectory_router/route", rclcpp::QoS{1}.transient_local(), 
                                                           std::bind(&TrajectorySelector::TRroutecallback, this, std::placeholders::_1));
     LC_route_sub_ = create_subscription<autoware_planning_msgs::msg::LaneletRoute>("/planning/obstacle_lane_change/route", rclcpp::QoS{1}.transient_local(), 
@@ -28,6 +28,7 @@ public:
     lane_change_check_sub_= create_subscription<autoware_planning_msgs::msg::LaneChangeCheck>("/planning/lane_change_check", rclcpp::QoS{1}, std::bind(&TrajectorySelector::callbackLaneChangeCheck, this, std::placeholders::_1));
   }
   autoware_planning_msgs::msg::LaneletRoute TR_route_msg_;
+  autoware_planning_msgs::msg::LaneletRoute LC_route_msg_;
   autoware_planning_msgs::msg::LaneChangeCheck lccMsg;
   rclcpp::Subscription<autoware_planning_msgs::msg::LaneletRoute>::ConstSharedPtr TR_route_sub_;
   rclcpp::Subscription<autoware_planning_msgs::msg::LaneletRoute>::ConstSharedPtr LC_route_sub_;
@@ -38,14 +39,19 @@ private:
   void TRroutecallback(const autoware_planning_msgs::msg::LaneletRoute::ConstSharedPtr msg)
   {
     TR_route_msg_ = *msg;
+    TR_route_msg_.header.stamp = this->get_clock()->now();
+    TR_route_msg_.header.frame_id = "map";
+    std::cout << "trajectory route pub" << std::endl;
     route_pub_->publish(TR_route_msg_);
   }
 
   void LCroutecallback(const autoware_planning_msgs::msg::LaneletRoute::ConstSharedPtr msg)
   {
     // std::cout << msg->header.stamp.sec << std::endl;
-    autoware_planning_msgs::msg::LaneletRoute LC_route_msg_;
     LC_route_msg_ = *msg;
+    LC_route_msg_.header.stamp = this->get_clock()->now();
+    LC_route_msg_.header.frame_id = "map";
+    std::cout << "obsatcle lane change pub" << std::endl;
     route_pub_->publish(LC_route_msg_);
   }
 
@@ -54,6 +60,7 @@ private:
   void callbackLaneChangeCheck(const autoware_planning_msgs::msg::LaneChangeCheck msg)
   {
     lccMsg = msg;
+    std::cout << "Get LaneChangeSignal : " << msg.changeflag << std::endl;
   }
 
   // pose를 받아서 field를 변경해야 하나? 
@@ -61,8 +68,12 @@ private:
   {
     if(lccMsg.changeflag)
     {
+      TR_route_msg_.header.stamp = this->get_clock()->now();
+      TR_route_msg_.header.frame_id = "map";
       TR_route_msg_.start_pose = msg.pose;
+      std::cout << "2-trajectory route pub" << std::endl;
       route_pub_->publish(TR_route_msg_);
+      lccMsg.changeflag = false;
     }
   }
 };
